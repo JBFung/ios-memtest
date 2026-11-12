@@ -8,7 +8,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build MemTest.ipa (unsigned: Sideloadly signs it when installing)
+      - name: "Build MemTest.ipa (unsigned, Sideloadly signs it when installing)"
         run: |
           set -euo pipefail
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
