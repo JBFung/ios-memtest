@@ -10,6 +10,7 @@
 // describes, so if iOS kills the app mid-test the last line written shows how far it got. The next launch shows the
 // previous run's log at the top.
 #import <UIKit/UIKit.h>
+#include <mach-o/dyld.h>
 #include <os/proc.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -79,8 +80,10 @@ static void run_tests(void) {
 
     // 1-2. Reservations
     out(@"--- 1. reserve 4 GB at fixed bases");
+    out(@"app image at %p", (void *)_dyld_get_image_header(0));
     const uint64_t bases[] = {0x10000000000ull /* PC GUEST_BASE, 1 TB */, 0x8000000000ull, 0x1000000000ull,
-                              0x800000000ull, 0x400000000ull, 0x200000000ull};
+                              0x800000000ull, 0x400000000ull, 0x300000000ull /* run 1: 'anywhere' got this */,
+                              0x200000000ull};
     for (size_t i = 0; i < sizeof bases / sizeof bases[0]; i++) {
         void *p = try_reserve(bases[i], GUEST_SPACE);
         out(@"  base 0x%llx: %@", bases[i], p ? @"OK" : @"FAILED");
@@ -100,6 +103,15 @@ static void run_tests(void) {
     if (!win) win = try_reserve(0, GUEST_SPACE);
     if (!win) { out(@"RESULT: cannot reserve a 4 GB window at all -> port is NOT feasible as designed."); return; }
     out(@"using window at %p", win);
+
+    // Address space left next to the window, for thread stacks, GPU buffers and everything else.
+    {
+        uint64_t left = 0; int k = 0; static void *small[1024];
+        const uint64_t blk = 64 * MB;
+        while (k < 1024 && (small[k] = try_reserve(0, blk))) { left += blk; k++; }
+        out(@"  address space left beside the window (64 MB blocks): %@", mbstr(left));
+        for (int i = 0; i < k; i++) munmap(small[i], blk);
+    }
 
     // 3. Lazy commit through SIGSEGV/SIGBUS
     out(@"--- 3. lazy commit via fault handler");
