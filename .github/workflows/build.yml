@@ -1,0 +1,25 @@
+name: build-ipa
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build MemTest.ipa (unsigned: Sideloadly signs it when installing)
+        run: |
+          set -euo pipefail
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          echo "SDK: $SDK"
+          mkdir -p build/Payload/MemTest.app
+          xcrun -sdk iphoneos clang -target arm64-apple-ios15.0 -isysroot "$SDK" -fobjc-arc -O2 \
+                -framework UIKit -framework Foundation main.m -o build/Payload/MemTest.app/MemTest
+          cp Info.plist build/Payload/MemTest.app/Info.plist
+          cd build && zip -qr MemTest.ipa Payload && ls -la MemTest.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MemTest-ipa
+          path: build/MemTest.ipa
+          if-no-files-found: error
