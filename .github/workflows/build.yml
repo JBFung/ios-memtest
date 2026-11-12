@@ -5,7 +5,14 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # Two runner types in parallel: macOS arm64 runners are often out of capacity, Intel ones may be free.
+    # Either one produces the same iPhone (arm64) app.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: "Build MemTest.ipa (unsigned, Sideloadly signs it when installing)"
@@ -20,6 +27,6 @@ jobs:
           cd build && zip -qr MemTest.ipa Payload && ls -la MemTest.ipa
       - uses: actions/upload-artifact@v4
         with:
-          name: MemTest-ipa
+          name: MemTest-ipa-${{ matrix.os }}
           path: build/MemTest.ipa
           if-no-files-found: error
